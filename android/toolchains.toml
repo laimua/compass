@@ -1,0 +1,7 @@
+[toolchains]
+  [toolchains.jdk]
+    name = "Java 21"
+    priority = 1
+    vendor = "any"
+    version = "21"
+    installationPath = "C:\\Program Files\\Java\\latest\\jdk-21"

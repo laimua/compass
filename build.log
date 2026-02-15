@@ -1,0 +1,20 @@
+warn Package react-native-sqlite-storage contains invalid configuration: "dependency.platforms.ios.project" is not allowed. Please verify it's properly linked using "npx react-native config" command and contact the package maintainers about this.
+info Building the app...
+'gradlew.bat' 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+
+info 馃挕 Tip: Make sure that you have set up your development environment correctly, by running npx react-native doctor. To read more about doctor command visit: https://github.com/react-native-community/cli/blob/main/packages/cli-doctor/README.md#doctor 
+
+error Failed to build the app.
+Error: Command failed with exit code 1: gradlew.bat app:installDebug -x lint -PreactNativeDevServerPort=8081
+    at makeError (D:\work\compass\node_modules\execa\lib\error.js:60:11)
+    at module.exports.sync (D:\work\compass\node_modules\execa\index.js:194:17)
+    at build (D:\work\compass\node_modules\@react-native-community\cli-platform-android\build\commands\buildAndroid\index.js:68:22)
+    at runOnSpecificDevice (D:\work\compass\node_modules\@react-native-community\cli-platform-android\build\commands\runAndroid\index.js:221:33)
+    at buildAndRun (D:\work\compass\node_modules\@react-native-community\cli-platform-android\build\commands\runAndroid\index.js:183:12)
+    at Object.runAndroid [as func] (D:\work\compass\node_modules\@react-native-community\cli-platform-android\build\commands\runAndroid\index.js:116:10)
+    at Command.handleAction (D:\work\compass\node_modules\@react-native-community\cli\build\index.js:118:23)
+    at Command.listener [as _actionHandler] (D:\work\compass\node_modules\commander\lib\command.js:482:17)
+    at D:\work\compass\node_modules\commander\lib\command.js:1283:65
+    at Command._chainOrCall (D:\work\compass\node_modules\commander\lib\command.js:1177:12)
+info Run CLI with --verbose flag for more details.

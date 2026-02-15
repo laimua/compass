@@ -1,0 +1,133 @@
+apply plugin: "com.android.application"
+apply plugin: "com.facebook.react"
+apply plugin: "org.jetbrains.kotlin.android"
+// 不使用 Firebase - 使用自定义本地通知模块
+
+/**
+ * This is the configuration block to customize your React Native Android app.
+ */
+react {
+    /* Folders */
+    root = file("../../")
+    reactNativeDir = file("../../node_modules/react-native")
+    codegenDir = file("../../node_modules/@react-native/codegen")
+
+    /* Automatically load packages from configuration */
+    cliFile = file("../../node_modules/react-native/cli.js")
+}
+
+configurations {
+    all {
+        exclude group: 'com.android.support', module: 'support-v4'
+        exclude group: 'com.android.support', module: 'appcompat-v7'
+    }
+}
+
+def enableSeparateBuildPerCPUArchitecture = false
+def enableProguardInReleaseBuilds = false
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+
+    compileSdkVersion rootProject.ext.compileSdkVersion
+
+    namespace "com.compass"
+
+    packagingOptions {
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+        pickFirst '**/RNSScreenManagerInterface.class'
+        pickFirst '**/RNSScreenManagerInterface.dex'
+        pickFirst '**/RNCSafeAreaProviderManagerDelegate.class'
+        pickFirst '**/RNCSafeAreaProviderManagerDelegate.dex'
+        pickFirst '**/RNCSafeAreaProviderManagerDelegate.class'
+        pickFirst '**/RNCSafeAreaProviderManagerDelegate.dex'
+    }
+    defaultConfig {
+        applicationId "com.compass"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+
+        // Google Maps API Key configuration
+        // 支持三种方式配置API密钥（按优先级）：
+        // 1. 环境变量 GOOGLE_MAPS_API_KEY
+        // 2. gradle.properties 文件中的 googleMapsApiKey
+        // 3. 以下默认密钥（仅用于开发测试）
+        def mapsApiKey = project.findProperty("GOOGLE_MAPS_API_KEY") ?: System.getenv("GOOGLE_MAPS_API_KEY")
+        if (mapsApiKey == null || mapsApiKey.isEmpty()) {
+            // 使用开发测试密钥（需要替换为真实密钥或获取自己的API密钥）
+            mapsApiKey = "AIzaSyBgDkQ3XLbOzhJKd8xJ-5p3d2xYCr2dABC"
+        }
+        resValue "string", "google_maps_key", mapsApiKey
+
+        // 打印API密钥配置信息到构建日志（方便调试）
+        println "Google Maps API Key configured: ${mapsApiKey.substring(0, 10)}..."
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android") {
+        exclude group: 'com.android.support', module: 'support-v4'
+        exclude group: 'com.android.support', module: 'appcompat-v7'
+        exclude group: 'com.android.support', module: 'support-annotations'
+        exclude group: 'com.android.support', module: 'support-compat'
+        exclude group: 'androidx.lifecycle', module: 'lifecycle-runtime'
+        exclude group: 'androidx.lifecycle', module: 'lifecycle-viewmodel'
+        exclude group: 'androidx.coordinatorlayout', module: 'coordinatorlayout'
+    }
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android") {
+            exclude group: 'com.android.support', module: 'support-v4'
+            exclude group: 'com.android.support', module: 'appcompat-v7'
+        }
+    } else {
+        implementation jscFlavor
+    }
+
+    // Google Play Services
+    implementation('com.google.android.gms:play-services-location:21.0.1') {
+        exclude group: 'com.android.support', module: 'support-v4'
+    }
+    implementation('com.google.android.gms:play-services-maps:18.1.0') {
+        exclude group: 'com.android.support', module: 'support-v4'
+    }
+
+    // Firebase (仅用于初始化以避免 react-native-notifications 崩溃)
+    implementation platform('com.google.firebase:firebase-bom:32.7.0')
+    implementation 'com.google.firebase:firebase-common'
+
+    implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.0.0"
+
+    // Flipper debugging - disabled for build compatibility
+    // debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")
+    // debugImplementation("com.facebook.flipper:flipper-network-plugin:${FLIPPER_VERSION}") {
+    //     exclude group:'com.squareup.okhttp3', module:'okhttp'
+    // }
+    // debugImplementation("com.facebook.flipper:flipper-fresco-plugin:${FLIPPER_VERSION}")
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

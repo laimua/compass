@@ -1,0 +1,39 @@
+buildscript {
+    ext {
+        buildToolsVersion = "33.0.0"
+        minSdkVersion = 23
+        compileSdkVersion = 33
+        targetSdkVersion = 33
+        ndkVersion = "23.1.7779620"
+    }
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/releases' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+    }
+    dependencies {
+        classpath('com.android.tools.build:gradle:8.1.4')
+        classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath('com.google.gms:google-services:4.4.2')
+    }
+}
+
+allprojects {
+    repositories {
+        maven {
+            url("$rootDir/../node_modules/react-native/android")
+        }
+        maven {
+            url("$rootDir/../node_modules/jsc-android/dist")
+        }
+        google()
+        mavenCentral()
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+    }
+}

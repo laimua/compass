@@ -1,0 +1,4 @@
+# Google Maps API Key Configuration
+# 获取API密钥的方法请参考：ANDROID_MAPS_SETUP.md
+# 将此文件重命名为 gradle.properties.local 并取消下面一行的注释，填入你的API密钥
+# googleMapsApiKey=YOUR_ACTUAL_GOOGLE_MAPS_API_KEY_HERE

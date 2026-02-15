@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- iOS 11+ 始终允许位置权限说明 -->
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Compass 使用系统级低功耗地理围栏服务来检测您是否进入指定区域。不会持续追踪位置，仅在跨越区域边界时由系统唤醒。</string>
+
+    <!-- iOS 11+ 始终允许和使用期间位置权限说明 -->
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Compass 使用系统级低功耗地理围栏服务来检测您是否进入指定区域。不会持续追踪位置，仅在跨越区域边界时由系统唤醒。</string>
+
+    <!-- 使用期间位置权限说明 -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Compass 需要位置权限来设置地理围栏提醒区域。</string>
+
+    <!-- 后台模式：位置和后台处理 -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+        <string>processing</string>
+    </array>
+
+    <!-- 通知权限（新版格式） -->
+    <key>UIUserNotificationSettings</key>
+    <dict>
+        <key>UIUserNotificationType</key>
+        <array>
+            <string>alert</string>
+            <string>badge</string>
+            <string>sound</string>
+        </array>
+        <key>UIUserNotificationCategories</key>
+        <array>
+            <dict>
+                <key>identifier</key>
+                <string>geofence</string>
+                <key>UIUserNotificationActions</key>
+                <array>
+                    <dict>
+                        <key>title</key>
+                        <string>查看</string>
+                        <key>identifier</key>
+                        <string>VIEW_ACTION</string>
+                    </dict>
+                </array>
+            </dict>
+        </array>
+    </dict>
+</dict>
+</plist>
