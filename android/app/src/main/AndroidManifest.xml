@@ -22,6 +22,7 @@
     <application
         android:name=".MainApplication"
         android:allowBackup="true"
+        android:allowNativeHeapPointerTagging="false"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher"
@@ -29,10 +30,10 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/AppTheme">
 
-        <!-- Google Maps API Key -->
+        <!-- 高德地图 API Key -->
         <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAE2TF4q4xMQPhNLydSPbUHJIZV9QQ0Qrs" />
+            android:name="com.amap.api.v2.apikey"
+            android:value="1e6c7511c674dee74efb65d626850a1a" />
 
         <activity
             android:name=".MainActivity"
