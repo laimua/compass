@@ -1,46 +1,76 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Platform, Alert, PermissionsAndroid } from 'react-native';
-import MapView, { Marker, Region, LatLng, PressEvent, MarkerDragEvent } from 'react-native-maps';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Platform, PermissionsAndroid } from 'react-native';
+import { MapView, Marker, Circle } from 'react-native-amap3d';
+import AmapLocationService from '../services/AmapLocationService';
 
 interface LocationPickerProps {
   initialLatitude: number;
   initialLongitude: number;
   onLocationChange: (latitude: number, longitude: number) => void;
+  radius?: number;
+  autoLocate?: boolean;
+  showCloseButton?: boolean;
+  onClose?: () => void;
 }
 
 export const LocationPicker: React.FC<LocationPickerProps> = ({
   initialLatitude,
   initialLongitude,
   onLocationChange,
+  radius = 500,
+  autoLocate = false,
+  showCloseButton = false,
+  onClose,
 }) => {
-  const [region, setRegion] = useState<Region>({
+  const [markerPosition, setMarkerPosition] = useState({
     latitude: initialLatitude,
     longitude: initialLongitude,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
   });
-  const [marker, setMarker] = useState<LatLng>({
-    latitude: initialLatitude,
-    longitude: initialLongitude,
+  const [cameraPosition, setCameraPosition] = useState({
+    target: {
+      latitude: initialLatitude,
+      longitude: initialLongitude,
+    },
+    zoom: 15,
   });
   const [loading, setLoading] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
+
   const mapRef = useRef<MapView>(null);
+  const autoLocateTriggered = useRef(false);
+  const locationReceived = useRef(false);
+  const isUserLocating = useRef(false); // 标记用户是否主动请求定位
 
   useEffect(() => {
     checkLocationPermission();
   }, []);
 
   useEffect(() => {
-    setMarker({ latitude: initialLatitude, longitude: initialLongitude });
-    setRegion({
-      latitude: initialLatitude,
-      longitude: initialLongitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
+    setMarkerPosition({ latitude: initialLatitude, longitude: initialLongitude });
+    setCameraPosition({
+      target: { latitude: initialLatitude, longitude: initialLongitude },
+      zoom: 15,
     });
   }, [initialLatitude, initialLongitude]);
+
+  // 当 autoLocate 变化时触发自动定位
+  useEffect(() => {
+    if (autoLocate && !autoLocateTriggered.current && hasLocationPermission) {
+      autoLocateTriggered.current = true;
+      locationReceived.current = false;
+      isUserLocating.current = true; // 标记为主动定位
+      setLoading(true);
+      // 设置超时
+      const timer = setTimeout(() => {
+        if (!locationReceived.current) {
+          setLoading(false);
+          isUserLocating.current = false;
+          console.log('自动定位超时');
+        }
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [autoLocate, hasLocationPermission]);
 
   const checkLocationPermission = async () => {
     try {
@@ -50,135 +80,134 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
         );
         setHasLocationPermission(granted);
       } else {
-        // iOS 默认假设有权限
         setHasLocationPermission(true);
       }
     } catch (error) {
       console.error('检查位置权限失败:', error);
-      // 假设有权限，让 Geolocation 自己处理
-      setHasLocationPermission(true);
+      setHasLocationPermission(false);
     }
   };
 
-  const requestLocationPermission = async () => {
-    try {
-      if (Platform.OS === 'android') {
+  // 处理地图位置更新事件 - 这是高德地图的定位回调
+  const handleLocation = useCallback((event: any) => {
+    console.log('高德地图定位回调触发:', JSON.stringify(event.nativeEvent));
+
+    const { coords } = event.nativeEvent;
+
+    if (coords && coords.latitude && coords.longitude) {
+      const { latitude, longitude, accuracy } = coords;
+
+      console.log('获取到位置:', latitude, longitude, '精度:', accuracy);
+
+      // 更新位置存储（始终更新，供其他地方使用）
+      AmapLocationService.updateFromMap(latitude, longitude, accuracy || 0);
+
+      // 只有在用户主动请求定位时才更新标记和地图位置
+      if (isUserLocating.current) {
+        locationReceived.current = true;
+        const newPosition = { latitude, longitude };
+        const newCameraPosition = {
+          target: newPosition,
+          zoom: 15,
+        };
+
+        setMarkerPosition(newPosition);
+        setCameraPosition(newCameraPosition);
+        onLocationChange(latitude, longitude);
+
+        // 移动地图到当前位置
+        mapRef.current?.moveCamera(newCameraPosition, 500);
+        setLoading(false);
+        isUserLocating.current = false; // 重置标记
+      }
+    }
+  }, [onLocationChange]);
+
+  // 手动触发定位 - 使用 moveCamera 触发位置更新
+  const getCurrentLocation = async () => {
+    console.log('getCurrentLocation called');
+
+    // 检查并请求权限
+    let hasPermission = hasLocationPermission;
+    if (!hasPermission && Platform.OS === 'android') {
+      try {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
         );
-        const hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
         setHasLocationPermission(hasPermission);
-        if (hasPermission) {
-          getCurrentLocation();
+
+        if (!hasPermission) {
+          return;
         }
+      } catch (error) {
+        console.error('请求位置权限失败:', error);
+        return;
       }
-    } catch (error) {
-      console.error('请求位置权限失败:', error);
-    }
-  };
-
-  const getCurrentLocation = async () => {
-    if (!hasLocationPermission) {
-      await requestLocationPermission();
-      return;
     }
 
+    locationReceived.current = false;
+    isUserLocating.current = true; // 标记为主动定位
     setLoading(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const newRegion = {
-          latitude,
-          longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        };
-
-        setRegion(newRegion);
-        setMarker({ latitude, longitude });
-        onLocationChange(latitude, longitude);
+    // 设置超时
+    setTimeout(() => {
+      if (!locationReceived.current) {
         setLoading(false);
-
-        mapRef.current?.animateToRegion(newRegion, 500);
-      },
-      (error) => {
-        console.error('获取位置失败:', error);
-        setLoading(false);
-        Alert.alert('提示', `无法获取当前位置: ${error.message}`);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 10000,
+        isUserLocating.current = false;
+        console.log('定位超时');
       }
-    );
+    }, 15000);
   };
 
-  const handleMapPress = (event: PressEvent) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    setMarker({ latitude, longitude });
+  const handleMapPress = (event: any) => {
+    const { latitude, longitude } = event.nativeEvent;
+    const newPosition = { latitude, longitude };
+    setMarkerPosition(newPosition);
     onLocationChange(latitude, longitude);
   };
 
-  const handleMarkerDragEnd = (event: MarkerDragEvent) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    setMarker({ latitude, longitude });
+  const handleMarkerDragEnd = (event: any) => {
+    const { latitude, longitude } = event.nativeEvent;
+    const newPosition = { latitude, longitude };
+    setMarkerPosition(newPosition);
     onLocationChange(latitude, longitude);
   };
 
-  const handleMapError = (error?: any) => {
-    console.log('地图错误:', error);
-    setMapError('地图加载失败。可能是 Google Play 服务未安装或版本过低。\n\n您可以手动输入经纬度来设置围栏位置。');
+  const handleMapReady = () => {
+    console.log('高德地图已加载');
   };
-
-  // 检查 Google Play Services 是否可用
-  const checkPlayServices = async () => {
-    try {
-      // 简单检查 - 如果地图能在5秒内加载成功就继续
-      setTimeout(() => {
-        if (!mapRef.current) {
-          console.log('地图加载超时');
-        }
-      }, 5000);
-    } catch (error) {
-      console.error('Play Services 检查失败:', error);
-    }
-  };
-
-  // 如果地图出错，显示提示
-  if (mapError) {
-    return (
-      <View style={[styles.container, styles.errorContainer]}>
-        <Text style={styles.errorText}>⚠️ {mapError}</Text>
-        <Text style={styles.hintText}>
-          您可以手动输入经纬度，或联系开发者配置地图功能。
-        </Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => setMapError(null)}>
-          <Text style={styles.retryButtonText}>重试</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
       <MapView
         ref={mapRef}
         style={styles.map}
-        region={region}
+        initialCameraPosition={cameraPosition}
         onPress={handleMapPress}
-        onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
-        provider="google"
-        onMapReady={() => console.log('地图已加载')}
-        onError={handleMapError}
+        onMapReady={handleMapReady}
+        myLocationEnabled={hasLocationPermission}
+        myLocationButtonEnabled={false}
+        showsCompass={true}
+        showsScale={true}
+        zoomControlsEnabled={false}
+        onLocation={handleLocation}
       >
         <Marker
-          coordinate={marker}
+          position={markerPosition}
           draggable
           onDragEnd={handleMarkerDragEnd}
           title="选中位置"
         />
+        {radius > 0 && (
+          <Circle
+            center={markerPosition}
+            radius={radius}
+            strokeWidth={2}
+            strokeColor="rgba(33, 150, 243, 0.8)"
+            fillColor="rgba(33, 150, 243, 0.2)"
+          />
+        )}
       </MapView>
 
       <TouchableOpacity style={styles.locateButton} onPress={getCurrentLocation}>
@@ -189,9 +218,15 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
         )}
       </TouchableOpacity>
 
+      {showCloseButton && onClose && (
+        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <Text style={styles.closeButtonText}>✕</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.coordinateDisplay}>
         <Text style={styles.coordinateText}>
-          {marker.latitude.toFixed(6)}, {marker.longitude.toFixed(6)}
+          {markerPosition.latitude.toFixed(6)}, {markerPosition.longitude.toFixed(6)}
         </Text>
       </View>
 
@@ -209,35 +244,6 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
-  },
-  errorContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-    borderRadius: 8,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#d32f2f',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#2196F3',
-    borderRadius: 4,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 14,
   },
   locateButton: {
     position: 'absolute',
@@ -257,6 +263,22 @@ const styles = StyleSheet.create({
   },
   locateButtonText: {
     fontSize: 24,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+  },
+  closeButtonText: {
+    fontSize: 16,
+    color: '#666',
   },
   coordinateDisplay: {
     position: 'absolute',
