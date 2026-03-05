@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { StatusBar, Alert } from 'react-native';
+import { StatusBar, Alert, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AMapSdk } from 'react-native-amap3d';
 import { Database } from './database/Database';
 import { GeofenceService } from './services/GeofenceService';
 import { NotificationService } from './services/NotificationService';
@@ -13,8 +14,14 @@ import { PermissionScreen } from './screens/PermissionScreen';
 
 const Stack = createNativeStackNavigator();
 
+// 高德地图 API Key
+const AMAP_API_KEY = Platform.select({
+  android: '1e6c7511c674dee74efb65d626850a1a',
+  ios: 'YOUR_IOS_AMAP_KEY', // iOS 需要单独申请
+});
+
 export default function App() {
-  const [hasPermission, setHasPermission] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null); // null 表示正在检查
   const [isInitialized, setIsInitialized] = useState(false);
   const db = Database.getInstance();
 
@@ -24,6 +31,11 @@ export default function App() {
   const geofenceService = useMemo(() => new GeofenceService(), []);
 
   useEffect(() => {
+    // 初始化高德地图 SDK
+    if (AMAP_API_KEY) {
+      AMapSdk.init(AMAP_API_KEY);
+      console.log('高德地图 SDK 已初始化');
+    }
     initializeApp();
     return () => {
       // 清理资源
@@ -37,19 +49,16 @@ export default function App() {
       // 初始化通知服务
       notificationService.configure();
 
-      // 请求权限
+      // 先检查权限状态（不触发请求）
       const permissionService = new PermissionService();
-      const locationGranted = await permissionService.requestLocationPermission();
-      const notificationGranted = await permissionService.requestNotificationPermission();
+      const permissions = await permissionService.checkPermissions();
 
-      console.log('权限检查结果:', { locationGranted, notificationGranted });
+      console.log('权限检查结果:', permissions);
 
-      if (!locationGranted || !notificationGranted) {
+      if (!permissions.location || !permissions.notification) {
         console.warn('权限未授予:', {
-          locationGranted,
-          notificationGranted,
-          locationReason: !locationGranted ? '位置权限未授予' : 'ok',
-          notificationReason: !notificationGranted ? '通知权限未授予' : 'ok'
+          location: permissions.location,
+          notification: permissions.notification,
         });
         setHasPermission(false);
         setIsInitialized(true);
@@ -160,11 +169,11 @@ export default function App() {
     }
   };
 
-  if (!isInitialized) {
-    return null; // 加载中
+  if (!isInitialized || hasPermission === null) {
+    return null; // 加载中或正在检查权限
   }
 
-  if (!hasPermission) {
+  if (hasPermission === false) {
     return <PermissionScreen onPermissionGranted={() => setHasPermission(true)} />;
   }
 

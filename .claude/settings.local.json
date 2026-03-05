@@ -67,7 +67,26 @@
       "Bash(ss:*)",
       "mcp__zai-mcp-server__analyze_image",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "mcp__zread__get_repo_structure",
+      "Bash(.build-debug-apk-v2.bat)",
+      "Bash(D:workcompassandroidgradlew.bat -p D:workcompassandroid assembleDebug)",
+      "Bash(build-debug-apk-v2.bat:*)",
+      "Bash(read:*)",
+      "mcp__zread__search_doc",
+      "Bash(gradlew.bat:*)",
+      "Bash(D:workcompassandroidbuild-debug-apk-v2.bat)",
+      "Bash(git -C D:/work/compass status)",
+      "Bash(git -C D:/work/compass diff:*)",
+      "Bash(git -C D:/work/compass log --oneline -5)",
+      "Bash(git -C D:/work/compass add:*)",
+      "Bash(git -C D:/work/compass commit -m \"$\\(cat <<''EOF''\nfix: 修复高德地图页面退出时应用崩溃的问题\n\n问题原因：\n- Android API 31+ 引入的指针标记功能与高德地图 SDK 不兼容\n- 崩溃日志显示 \"Pointer tag for xxx was truncated\"\n\n解决方案：\n- 在 AndroidManifest.xml 中添加 android:allowNativeHeapPointerTagging=\"false\"\n- 简化 AddGeofenceScreen.tsx 中的导航逻辑\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C D:/work/compass log:*)",
+      "Bash(git -C D:/work/compass push origin main)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(D:)"
     ]
   },
   "statusLine": {

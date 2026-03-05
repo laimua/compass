@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Platform, PermissionsAndroid } from 'react-native';
 import { MapView, Marker, Circle } from 'react-native-amap3d';
+import Geolocation from 'react-native-geolocation-service';
 import AmapLocationService from '../services/AmapLocationService';
 
 interface LocationPickerProps {
@@ -8,7 +9,6 @@ interface LocationPickerProps {
   initialLongitude: number;
   onLocationChange: (latitude: number, longitude: number) => void;
   radius?: number;
-  autoLocate?: boolean;
   showCloseButton?: boolean;
   onClose?: () => void;
 }
@@ -18,18 +18,24 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   initialLongitude,
   onLocationChange,
   radius = 500,
-  autoLocate = false,
   showCloseButton = false,
   onClose,
 }) => {
-  const [markerPosition, setMarkerPosition] = useState({
+  // 使用 ref 存储初始值，确保只在组件挂载时使用一次
+  const initialValuesRef = useRef({
     latitude: initialLatitude,
     longitude: initialLongitude,
   });
+
+  // 位置状态完全由内部管理，不受外部 props 影响
+  const [markerPosition, setMarkerPosition] = useState({
+    latitude: initialValuesRef.current.latitude,
+    longitude: initialValuesRef.current.longitude,
+  });
   const [cameraPosition, setCameraPosition] = useState({
     target: {
-      latitude: initialLatitude,
-      longitude: initialLongitude,
+      latitude: initialValuesRef.current.latitude,
+      longitude: initialValuesRef.current.longitude,
     },
     zoom: 15,
   });
@@ -37,40 +43,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
 
   const mapRef = useRef<MapView>(null);
-  const autoLocateTriggered = useRef(false);
-  const locationReceived = useRef(false);
-  const isUserLocating = useRef(false); // 标记用户是否主动请求定位
 
   useEffect(() => {
     checkLocationPermission();
   }, []);
-
-  useEffect(() => {
-    setMarkerPosition({ latitude: initialLatitude, longitude: initialLongitude });
-    setCameraPosition({
-      target: { latitude: initialLatitude, longitude: initialLongitude },
-      zoom: 15,
-    });
-  }, [initialLatitude, initialLongitude]);
-
-  // 当 autoLocate 变化时触发自动定位
-  useEffect(() => {
-    if (autoLocate && !autoLocateTriggered.current && hasLocationPermission) {
-      autoLocateTriggered.current = true;
-      locationReceived.current = false;
-      isUserLocating.current = true; // 标记为主动定位
-      setLoading(true);
-      // 设置超时
-      const timer = setTimeout(() => {
-        if (!locationReceived.current) {
-          setLoading(false);
-          isUserLocating.current = false;
-          console.log('自动定位超时');
-        }
-      }, 15000);
-      return () => clearTimeout(timer);
-    }
-  }, [autoLocate, hasLocationPermission]);
 
   const checkLocationPermission = async () => {
     try {
@@ -88,42 +64,35 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
     }
   };
 
-  // 处理地图位置更新事件 - 这是高德地图的定位回调
+  // 处理地图位置更新事件 - 仅用于更新 AmapLocationService，不更新标记位置
   const handleLocation = useCallback((event: any) => {
-    console.log('高德地图定位回调触发:', JSON.stringify(event.nativeEvent));
-
     const { coords } = event.nativeEvent;
 
     if (coords && coords.latitude && coords.longitude) {
       const { latitude, longitude, accuracy } = coords;
-
-      console.log('获取到位置:', latitude, longitude, '精度:', accuracy);
-
-      // 更新位置存储（始终更新，供其他地方使用）
+      // 只更新位置存储，不更新标记位置
       AmapLocationService.updateFromMap(latitude, longitude, accuracy || 0);
+    }
+  }, []);
 
-      // 只有在用户主动请求定位时才更新标记和地图位置
-      if (isUserLocating.current) {
-        locationReceived.current = true;
-        const newPosition = { latitude, longitude };
-        const newCameraPosition = {
-          target: newPosition,
-          zoom: 15,
-        };
+  // 更新位置的通用方法
+  const updatePosition = useCallback((latitude: number, longitude: number, moveCamera: boolean = true) => {
+    const newPosition = { latitude, longitude };
+    const newCameraPosition = {
+      target: newPosition,
+      zoom: 15,
+    };
 
-        setMarkerPosition(newPosition);
-        setCameraPosition(newCameraPosition);
-        onLocationChange(latitude, longitude);
+    setMarkerPosition(newPosition);
+    setCameraPosition(newCameraPosition);
+    onLocationChange(latitude, longitude);
 
-        // 移动地图到当前位置
-        mapRef.current?.moveCamera(newCameraPosition, 500);
-        setLoading(false);
-        isUserLocating.current = false; // 重置标记
-      }
+    if (moveCamera && mapRef.current) {
+      mapRef.current.moveCamera(newCameraPosition, 500);
     }
   }, [onLocationChange]);
 
-  // 手动触发定位 - 使用 moveCamera 触发位置更新
+  // 手动触发定位 - 使用 Geolocation 主动获取位置
   const getCurrentLocation = async () => {
     console.log('getCurrentLocation called');
 
@@ -146,33 +115,41 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       }
     }
 
-    locationReceived.current = false;
-    isUserLocating.current = true; // 标记为主动定位
     setLoading(true);
 
-    // 设置超时
-    setTimeout(() => {
-      if (!locationReceived.current) {
+    // 使用 Geolocation 主动获取位置
+    Geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log('获取到位置:', latitude, longitude);
+        updatePosition(latitude, longitude, true);
         setLoading(false);
-        isUserLocating.current = false;
-        console.log('定位超时');
+      },
+      (error) => {
+        console.error('获取位置失败:', error);
+        setLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 10000,
       }
-    }, 15000);
+    );
   };
 
-  const handleMapPress = (event: any) => {
+  // 用户点击地图选择位置
+  const handleMapPress = useCallback((event: any) => {
     const { latitude, longitude } = event.nativeEvent;
-    const newPosition = { latitude, longitude };
-    setMarkerPosition(newPosition);
-    onLocationChange(latitude, longitude);
-  };
+    console.log('用户点击地图:', latitude, longitude);
+    updatePosition(latitude, longitude, false);
+  }, [updatePosition]);
 
-  const handleMarkerDragEnd = (event: any) => {
+  // 用户拖动标记选择位置
+  const handleMarkerDragEnd = useCallback((event: any) => {
     const { latitude, longitude } = event.nativeEvent;
-    const newPosition = { latitude, longitude };
-    setMarkerPosition(newPosition);
-    onLocationChange(latitude, longitude);
-  };
+    console.log('用户拖动标记:', latitude, longitude);
+    updatePosition(latitude, longitude, false);
+  }, [updatePosition]);
 
   const handleMapReady = () => {
     console.log('高德地图已加载');

@@ -226,7 +226,6 @@ export const AddGeofenceScreen: React.FC<Props> = ({ navigation, route }) => {
               initialLongitude={parseFloat(longitude) || 116.4074}
               onLocationChange={handleLocationChange}
               radius={parseInt(radius) || 200}
-              autoLocate={showMap}
             />
           </View>
         )}
